@@ -8,19 +8,20 @@ using System.Collections.Generic;
 namespace MGLib;
 
 public abstract class Scene {
-	protected internal static NotatoGame game;
-	protected internal readonly Dictionary<Keys, Action> actions = new Dictionary<Keys, Action>() {
-		{ Keys.Z, () => {} },
-		{ Keys.X, () => {} },
-		{ Keys.Up, () => {} },
-		{ Keys.Down, () => {} },
-		{ Keys.Left, () => {} },
-		{ Keys.Right, () => {} }
+	protected internal readonly Dictionary<Keys, Action<NotatoGame>> actions = new Dictionary<Keys, Action<NotatoGame>>() {
+		{ Keys.Z, (NotatoGame game) => {} },
+		{ Keys.X, (NotatoGame game) => {} },
+		{ Keys.Up, (NotatoGame game) => {} },
+		{ Keys.Down, (NotatoGame game) => {} },
+		{ Keys.Left, (NotatoGame game) => {} },
+		{ Keys.Right, (NotatoGame game) => {} }
 	};
 
-	protected internal abstract void Update();
+	protected internal abstract void Initialize(NotatoGame game);
 
-	protected internal abstract void Draw();
+	protected internal abstract void Update(NotatoGame game);
+
+	protected internal abstract void Draw(NotatoGame game);
 }
 
 public sealed class NotatoGame : Game {
@@ -38,7 +39,6 @@ public sealed class NotatoGame : Game {
 	private Character[] characters;
 	private readonly float scaleFactor;
 	private readonly Vector2 offset;
-	private readonly Action<ContentManager> loader;
 
 	private Dictionary<Keys, bool> keysLocked = new Dictionary<Keys, bool>() {
 		{ Keys.Z, false },
@@ -51,7 +51,7 @@ public sealed class NotatoGame : Game {
 
 	public Scene scene;
 
-	public NotatoGame(int internalWidth, int internalHeight, Scene initialScene, Action<ContentManager> loader) {
+	public NotatoGame(int internalWidth, int internalHeight, Scene initialScene) {
 		int width = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
 		int height = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
 		scaleFactor = Math.Min(width / internalWidth, height / internalHeight);
@@ -63,12 +63,14 @@ public sealed class NotatoGame : Game {
 			IsFullScreen = true
 		};
 
-		Scene.game = this;
 		scene = initialScene;
 
-		this.loader = loader;
-
 		Run();
+	}
+
+	public void changeScene(Scene scene) {
+		this.scene = scene;
+		this.scene.Initialize(this);
 	}
 
 	protected sealed override void Initialize() {
@@ -145,7 +147,7 @@ public sealed class NotatoGame : Game {
 			new Character(Content.Load<Texture2D>("question_mark"), 6)
 		};
 
-		loader(Content);
+		scene.Initialize(this);
 
 		base.Initialize();
 	}
@@ -158,16 +160,16 @@ public sealed class NotatoGame : Game {
 				keysLocked[key] = false;
 			} else if (!keysLocked[key]) {
 				keysLocked[key] = true;
-				scene.actions[key]();
+				scene.actions[key](this);
 			}
 		}
 
-		scene.Update();
+		scene.Update(this);
 	}
 
 	protected sealed override void Draw(GameTime gameTime) {
 		spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-		scene.Draw();
+		scene.Draw(this);
 		spriteBatch.End();
 	}
 
