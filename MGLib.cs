@@ -1,5 +1,4 @@
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -25,20 +24,7 @@ public abstract class Scene {
 }
 
 public sealed class NotatoGame : Game {
-	private sealed class Character {
-		public readonly Texture2D texture;
-		internal readonly byte width;
-
-		public Character(Texture2D texture, byte width) {
-			this.texture = texture;
-			this.width = width;
-		}
-	}
-
-	private SpriteBatch spriteBatch;
-	private Character[] characters;
-	private readonly float scaleFactor;
-	private readonly Vector2 offset;
+	private Scene scene;
 
 	private Dictionary<Keys, bool> keysLocked = new Dictionary<Keys, bool>() {
 		{ Keys.Z, false },
@@ -49,9 +35,14 @@ public sealed class NotatoGame : Game {
 		{ Keys.Right, false }
 	};
 
-	public Scene scene;
+	private SpriteBatch spriteBatch;
+	private readonly float scaleFactor;
+	private readonly Vector2 offset;
+	private Character[] characters;
 
 	public NotatoGame(int internalWidth, int internalHeight, Scene initialScene) {
+		scene = initialScene;
+
 		int width = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
 		int height = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
 		scaleFactor = Math.Min(width / internalWidth, height / internalHeight);
@@ -63,14 +54,24 @@ public sealed class NotatoGame : Game {
 			IsFullScreen = true
 		};
 
-		scene = initialScene;
-
 		Run();
 	}
 
 	public void changeScene(Scene scene) {
 		this.scene = scene;
 		this.scene.Initialize(this);
+	}
+
+	public void Draw(Texture2D texture, int x, int y) {
+		spriteBatch.Draw(texture, new Vector2(x, y) * scaleFactor + offset, null, Color.White, 0, Vector2.Zero, scaleFactor, SpriteEffects.None, 0);
+	}
+
+	public void DrawString(byte[] str, int x, int y) {
+		for (byte i = 0; i < str.Length; i++ ) {
+			Character character = characters[str[i]];
+			Draw(character.texture, x, y);
+			x += (ushort) (character.width);
+		}
 	}
 
 	protected sealed override void Initialize() {
@@ -173,15 +174,13 @@ public sealed class NotatoGame : Game {
 		spriteBatch.End();
 	}
 
-	public void Draw(Texture2D texture, int x, int y) {
-		spriteBatch.Draw(texture, new Vector2(x, y) * scaleFactor + offset, null, Color.White, 0, Vector2.Zero, scaleFactor, SpriteEffects.None, 0);
-	}
+	private struct Character {
+		public readonly Texture2D texture;
+		internal readonly byte width;
 
-	public void DrawString(byte[] str, int x, int y) {
-		for (byte i = 0; i < str.Length; i++ ) {
-			Character character = characters[str[i]];
-			Draw(character.texture, x, y);
-			x += (ushort) (character.width);
+		public Character(Texture2D texture, byte width) {
+			this.texture = texture;
+			this.width = width;
 		}
 	}
 }
