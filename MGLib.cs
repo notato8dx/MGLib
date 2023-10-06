@@ -1,24 +1,29 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections.Generic;
 
 namespace MGLib;
 
 public abstract class NotatoGame : Game {
-	protected abstract class Drawable {
+	private sealed class Character {
 		public readonly Texture2D texture;
+		internal readonly byte width;
 
-		protected Drawable(Texture2D texture) {
+		public Character(Texture2D texture, byte width) {
 			this.texture = texture;
+			this.width = width;
 		}
 	}
 
-	private sealed class Character : Drawable {
-		public readonly byte width;
+	public abstract class Scene {
+		protected internal static NotatoGame game;
+		protected internal Dictionary<Keys, Action> actions;
 
-		public Character(Texture2D texture, byte width) : base(texture) {
-			this.width = width;
-		}
+		protected internal abstract void Update();
+
+		protected internal abstract void Draw();
 	}
 
 	private SpriteBatch spriteBatch;
@@ -26,7 +31,18 @@ public abstract class NotatoGame : Game {
 	private readonly float scaleFactor;
 	private readonly Vector2 offset;
 
-	protected NotatoGame(int internalWidth, int internalHeight) {
+	private Dictionary<Keys, bool> keysLocked = new Dictionary<Keys, bool>() {
+		{ Keys.Up, false },
+		{ Keys.Down, false },
+		{ Keys.Left, false },
+		{ Keys.Right, false },
+		{ Keys.Z, false },
+		{ Keys.X, false }
+	};
+
+	public Scene scene;
+
+	protected NotatoGame(int internalWidth, int internalHeight, Scene initialScene) {
 		int width = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
 		int height = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
 		scaleFactor = Math.Min(width / internalWidth, height / internalHeight);
@@ -38,10 +54,13 @@ public abstract class NotatoGame : Game {
 			IsFullScreen = true
 		};
 
+		Scene.game = this;
+		scene = initialScene;
+
 		Run();
 	}
 
-	protected abstract void InitializeMethod();
+	protected abstract void Load();
 
 	protected sealed override void Initialize() {
 		spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -117,26 +136,37 @@ public abstract class NotatoGame : Game {
 			new Character(Content.Load<Texture2D>("question_mark"), 6)
 		};
 
-		InitializeMethod();
+		Load();
 
 		base.Initialize();
 	}
 
-	protected abstract void DrawMethod();
+	protected sealed override void Update(GameTime gameTime) {
+		KeyboardState keyboard = Keyboard.GetState();
+
+		foreach (Keys key in keysLocked.Keys) {
+			if (keyboard[key] == KeyState.Up) {
+				keysLocked[key] = false;
+			} else if (!keysLocked[key]) {
+				keysLocked[key] = true;
+				scene.actions[key]();
+			}
+		}
+
+		scene.Update();
+	}
 
 	protected sealed override void Draw(GameTime gameTime) {
 		spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-
-		DrawMethod();
-
+		scene.Draw();
 		spriteBatch.End();
 	}
 
-	protected void Draw(Texture2D texture, int x, int y) {
+	public void Draw(Texture2D texture, int x, int y) {
 		spriteBatch.Draw(texture, new Vector2(x, y) * scaleFactor + offset, null, Color.White, 0, Vector2.Zero, scaleFactor, SpriteEffects.None, 0);
 	}
 
-	protected void DrawString(byte[] str, int x, int y) {
+	public void DrawString(byte[] str, int x, int y) {
 		for (byte i = 0; i < str.Length; i++ ) {
 			Character character = characters[str[i]];
 			Draw(character.texture, x, y);
