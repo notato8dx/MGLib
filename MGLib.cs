@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -6,7 +7,23 @@ using System.Collections.Generic;
 
 namespace MGLib;
 
-public abstract class NotatoGame : Game {
+public abstract class Scene {
+	protected internal static NotatoGame game;
+	protected internal readonly Dictionary<Keys, Action> actions = new Dictionary<Keys, Action>() {
+		{ Keys.Z, () => {} },
+		{ Keys.X, () => {} },
+		{ Keys.Up, () => {} },
+		{ Keys.Down, () => {} },
+		{ Keys.Left, () => {} },
+		{ Keys.Right, () => {} }
+	};
+
+	protected internal abstract void Update();
+
+	protected internal abstract void Draw();
+}
+
+public sealed class NotatoGame : Game {
 	private sealed class Character {
 		public readonly Texture2D texture;
 		internal readonly byte width;
@@ -17,32 +34,24 @@ public abstract class NotatoGame : Game {
 		}
 	}
 
-	public abstract class Scene {
-		protected internal static NotatoGame game;
-		protected internal Dictionary<Keys, Action> actions;
-
-		protected internal abstract void Update();
-
-		protected internal abstract void Draw();
-	}
-
 	private SpriteBatch spriteBatch;
 	private Character[] characters;
 	private readonly float scaleFactor;
 	private readonly Vector2 offset;
+	private readonly Action<ContentManager> loader;
 
 	private Dictionary<Keys, bool> keysLocked = new Dictionary<Keys, bool>() {
+		{ Keys.Z, false },
+		{ Keys.X, false },
 		{ Keys.Up, false },
 		{ Keys.Down, false },
 		{ Keys.Left, false },
-		{ Keys.Right, false },
-		{ Keys.Z, false },
-		{ Keys.X, false }
+		{ Keys.Right, false }
 	};
 
 	public Scene scene;
 
-	protected NotatoGame(int internalWidth, int internalHeight, Scene initialScene) {
+	public NotatoGame(int internalWidth, int internalHeight, Scene initialScene, Action<ContentManager> loader) {
 		int width = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
 		int height = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
 		scaleFactor = Math.Min(width / internalWidth, height / internalHeight);
@@ -57,10 +66,10 @@ public abstract class NotatoGame : Game {
 		Scene.game = this;
 		scene = initialScene;
 
+		this.loader = loader;
+
 		Run();
 	}
-
-	protected abstract void Load();
 
 	protected sealed override void Initialize() {
 		spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -136,7 +145,7 @@ public abstract class NotatoGame : Game {
 			new Character(Content.Load<Texture2D>("question_mark"), 6)
 		};
 
-		Load();
+		loader(Content);
 
 		base.Initialize();
 	}
