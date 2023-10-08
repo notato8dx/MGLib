@@ -6,9 +6,6 @@ using System.Collections.Generic;
 
 namespace MGLib;
 
-/// <summary>
-/// Represents a state of a scene.
-/// </summary?
 public abstract class State<T> where T : Scene {
 	public virtual void OnConfirm(T scene) {}
 
@@ -27,9 +24,6 @@ public abstract class State<T> where T : Scene {
 	public virtual void Draw(NotatoGame game, T scene) {}
 }
 
-/// <summary>
-/// Represents a state of a game.
-/// </summary>
 public abstract class Scene {
 	protected internal virtual void Initialize(NotatoGame game) {}
 
@@ -91,7 +85,7 @@ public sealed class NotatoGame : Game {
 		Run();
 	}
 
-	public void changeScene(Scene scene) {
+	public void ChangeScene(Scene scene) {
 		this.scene = scene;
 		this.scene.Initialize(this);
 	}
