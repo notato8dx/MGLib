@@ -6,6 +6,9 @@ using System.Collections.Generic;
 
 namespace MGLib;
 
+/// <summary>
+/// Represents a state of a scene.
+/// </summary?
 public abstract class State<T> where T : Scene {
 	public virtual void OnConfirm(T scene) {}
 
@@ -24,6 +27,9 @@ public abstract class State<T> where T : Scene {
 	public virtual void Draw(NotatoGame game, T scene) {}
 }
 
+/// <summary>
+/// Represents a state of a game.
+/// </summary>
 public abstract class Scene {
 	protected internal virtual void Initialize(NotatoGame game) {}
 
@@ -45,15 +51,22 @@ public abstract class Scene {
 }
 
 public sealed class NotatoGame : Game {
+	private const Keys confirmKey = Keys.Z;
+	private const Keys cancelKey = Keys.X;
+	private const Keys moveUpKey = Keys.Up;
+	private const Keys moveDownKey = Keys.Down;
+	private const Keys moveLeftKey = Keys.Left;
+	private const Keys moveRightKey = Keys.Right;
+
 	private Scene scene;
 
 	private readonly Dictionary<Keys, bool> keysLocked = new Dictionary<Keys, bool>() {
-		{ Keys.Z, false },
-		{ Keys.X, false },
-		{ Keys.Up, false },
-		{ Keys.Down, false },
-		{ Keys.Left, false },
-		{ Keys.Right, false }
+		{ confirmKey, false },
+		{ cancelKey, false },
+		{ moveUpKey, false },
+		{ moveDownKey, false },
+		{ moveLeftKey, false },
+		{ moveRightKey, false }
 	};
 
 	private SpriteBatch spriteBatch;
@@ -177,12 +190,12 @@ public sealed class NotatoGame : Game {
 	protected override void Update(GameTime gameTime) {
 		KeyboardState keyboard = Keyboard.GetState();
 
-		UpdateKey(Keys.Z, scene.OnConfirm);
-		UpdateKey(Keys.X, scene.OnCancel);
-		UpdateKey(Keys.Up, scene.OnMoveUp);
-		UpdateKey(Keys.Down, scene.OnMoveDown);
-		UpdateKey(Keys.Left, scene.OnMoveLeft);
-		UpdateKey(Keys.Right, scene.OnMoveRight);
+		UpdateKey(confirmKey, scene.OnConfirm);
+		UpdateKey(cancelKey, scene.OnCancel);
+		UpdateKey(moveUpKey, scene.OnMoveUp);
+		UpdateKey(moveDownKey, scene.OnMoveDown);
+		UpdateKey(moveLeftKey, scene.OnMoveLeft);
+		UpdateKey(moveRightKey, scene.OnMoveRight);
 
 		scene.Update(this);
 
