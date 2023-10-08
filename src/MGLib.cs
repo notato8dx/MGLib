@@ -7,26 +7,31 @@ using System.Collections.Generic;
 namespace MGLib;
 
 public abstract class Scene {
-	protected internal readonly Dictionary<Keys, Action<NotatoGame>> actions = new Dictionary<Keys, Action<NotatoGame>>() {
-		{ Keys.Z, (NotatoGame game) => {} },
-		{ Keys.X, (NotatoGame game) => {} },
-		{ Keys.Up, (NotatoGame game) => {} },
-		{ Keys.Down, (NotatoGame game) => {} },
-		{ Keys.Left, (NotatoGame game) => {} },
-		{ Keys.Right, (NotatoGame game) => {} }
-	};
+	protected internal virtual void Initialize(NotatoGame game) {}
 
-	protected internal abstract void Initialize(NotatoGame game);
+	protected internal virtual void OnConfirm(NotatoGame game) {}
 
-	protected internal abstract void Update(NotatoGame game);
+	protected internal virtual void OnCancel(NotatoGame game) {}
 
-	protected internal abstract void Draw(NotatoGame game);
+	protected internal virtual void OnMoveUp(NotatoGame game) {}
+
+	protected internal virtual void OnMoveDown(NotatoGame game) {}
+
+	protected internal virtual void OnMoveLeft(NotatoGame game) {}
+
+	protected internal virtual void OnMoveRight(NotatoGame game) {}
+
+	protected internal virtual void Update(NotatoGame game) {}
+
+	protected internal virtual void Draw(NotatoGame game) {}
 }
 
+// Consider changing this to use composition instead of inheritance, as NotatoGame never needs to work as a Game.
+// Maybe I can get readonly textures this way
 public sealed class NotatoGame : Game {
 	private Scene scene;
 
-	private Dictionary<Keys, bool> keysLocked = new Dictionary<Keys, bool>() {
+	private readonly Dictionary<Keys, bool> keysLocked = new Dictionary<Keys, bool>() {
 		{ Keys.Z, false },
 		{ Keys.X, false },
 		{ Keys.Up, false },
@@ -156,16 +161,23 @@ public sealed class NotatoGame : Game {
 	protected sealed override void Update(GameTime gameTime) {
 		KeyboardState keyboard = Keyboard.GetState();
 
-		foreach (Keys key in keysLocked.Keys) {
+		UpdateKey(Keys.Z, scene.OnConfirm);
+		UpdateKey(Keys.X, scene.OnCancel);
+		UpdateKey(Keys.Up, scene.OnMoveUp);
+		UpdateKey(Keys.Down, scene.OnMoveDown);
+		UpdateKey(Keys.Left, scene.OnMoveLeft);
+		UpdateKey(Keys.Right, scene.OnMoveRight);
+
+		scene.Update(this);
+
+		void UpdateKey(Keys key, Action<NotatoGame> action) {
 			if (keyboard[key] == KeyState.Up) {
 				keysLocked[key] = false;
 			} else if (!keysLocked[key]) {
 				keysLocked[key] = true;
-				scene.actions[key](this);
+				action(this);
 			}
 		}
-
-		scene.Update(this);
 	}
 
 	protected sealed override void Draw(GameTime gameTime) {
