@@ -6,6 +6,24 @@ using System.Collections.Generic;
 
 namespace MGLib;
 
+public abstract class State<T> where T : Scene {
+	public virtual void OnConfirm(T scene) {}
+
+	public virtual void OnCancel(T scene) {}
+
+	public virtual void OnMoveUp(T scene) {}
+
+	public virtual void OnMoveDown(T scene) {}
+
+	public virtual void OnMoveLeft(T scene) {}
+
+	public virtual void OnMoveRight(T scene) {}
+
+	public virtual void Update(T scene) {}
+
+	public virtual void Draw(NotatoGame game, T scene) {}
+}
+
 public abstract class Scene {
 	protected internal virtual void Initialize(NotatoGame game) {}
 
@@ -26,8 +44,6 @@ public abstract class Scene {
 	protected internal virtual void Draw(NotatoGame game) {}
 }
 
-// Consider changing this to use composition instead of inheritance, as NotatoGame never needs to work as a Game.
-// Maybe I can get readonly textures this way
 public sealed class NotatoGame : Game {
 	private Scene scene;
 
@@ -79,7 +95,7 @@ public sealed class NotatoGame : Game {
 		}
 	}
 
-	protected sealed override void Initialize() {
+	protected override void Initialize() {
 		spriteBatch = new SpriteBatch(GraphicsDevice);
 
 		Content.RootDirectory = "Content";
@@ -158,7 +174,7 @@ public sealed class NotatoGame : Game {
 		base.Initialize();
 	}
 
-	protected sealed override void Update(GameTime gameTime) {
+	protected override void Update(GameTime gameTime) {
 		KeyboardState keyboard = Keyboard.GetState();
 
 		UpdateKey(Keys.Z, scene.OnConfirm);
@@ -180,7 +196,7 @@ public sealed class NotatoGame : Game {
 		}
 	}
 
-	protected sealed override void Draw(GameTime gameTime) {
+	protected override void Draw(GameTime gameTime) {
 		spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
 		scene.Draw(this);
 		spriteBatch.End();
