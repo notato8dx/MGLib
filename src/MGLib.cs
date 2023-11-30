@@ -6,45 +6,114 @@ using System.Collections.Generic;
 
 namespace MGLib;
 
-public abstract class State<T> where T : Scene {
-	public virtual void OnConfirm(T scene) {}
+public sealed class Clock<T> {
+	private readonly ushort period;
+	private readonly Action<T> action;
 
-	public virtual void OnCancel(T scene) {}
+	private ushort time = 0;
 
-	public virtual void OnMoveUp(T scene) {}
+	public Clock(ushort period, Action<T> action) {
+		this.period = period;
+		this.action = action;
+	}
 
-	public virtual void OnMoveDown(T scene) {}
-
-	public virtual void OnMoveLeft(T scene) {}
-
-	public virtual void OnMoveRight(T scene) {}
-
-	public virtual void Update(T scene) {}
-
-	public virtual void Draw(NotatoGame game, T scene) {}
+	public void Tick(T owner) {
+		if (time < period - 1) {
+			time += 1;
+		} else {
+			time = 0;
+			action(owner);
+		}
+	}
 }
 
-public abstract class Scene {
-	protected internal virtual void Initialize(NotatoGame game) {}
+public readonly struct Sprite {
+	internal readonly Texture2D texture;
 
-	protected internal virtual void OnConfirm(NotatoGame game) {}
-
-	protected internal virtual void OnCancel(NotatoGame game) {}
-
-	protected internal virtual void OnMoveUp(NotatoGame game) {}
-
-	protected internal virtual void OnMoveDown(NotatoGame game) {}
-
-	protected internal virtual void OnMoveLeft(NotatoGame game) {}
-
-	protected internal virtual void OnMoveRight(NotatoGame game) {}
-
-	protected internal virtual void Update(NotatoGame game) {}
-
-	protected internal virtual void Draw(NotatoGame game) {}
+	public Sprite(string filename) {
+		this.texture = Game.game.Content.Load<Texture2D>(filename);
+	}
 }
 
-public sealed class NotatoGame : Game {
+public abstract class State {
+	protected internal virtual void OnConfirm() {}
+
+	protected internal virtual void OnCancel() {}
+
+	protected internal virtual void OnMoveUp() {}
+
+	protected internal virtual void OnMoveDown() {}
+
+	protected internal virtual void OnMoveLeft() {}
+
+	protected internal virtual void OnMoveRight() {}
+
+	protected internal virtual void Update() {}
+
+	protected internal virtual void Draw() {}
+}
+
+public abstract class Superstate<T> : State where T : Superstate<T> {
+	protected Substate<T> substate;
+
+	protected void ChangeSubstate<T2>() where T2 : Substate<T>, new() {
+		substate = new T2();
+	}
+
+	protected internal override void OnConfirm() {
+		substate.OnConfirm((T) this);
+	}
+
+	protected internal override void OnCancel() {
+		substate.OnCancel((T) this);
+	}
+
+	protected internal override void OnMoveUp() {
+		substate.OnMoveUp((T) this);
+	}
+
+	protected internal override void OnMoveDown() {
+		substate.OnMoveDown((T) this);
+	}
+
+	protected internal override void OnMoveLeft() {
+		substate.OnMoveLeft((T) this);
+	}
+
+	protected internal override void OnMoveRight() {
+		substate.OnMoveRight((T) this);
+	}
+
+	protected internal override void Update() {
+		substate.Update((T) this);
+	}
+
+	protected internal override void Draw() {
+		substate.Draw((T) this);
+	}
+}
+
+public abstract class Substate<T> where T : Superstate<T> {
+	public virtual void OnConfirm(T superstate) {}
+
+	public virtual void OnCancel(T superstate) {}
+
+	public virtual void OnMoveUp(T superstate) {}
+
+	public virtual void OnMoveDown(T superstate) {}
+
+	public virtual void OnMoveLeft(T superstate) {}
+
+	public virtual void OnMoveRight(T superstate) {}
+
+	public virtual void Update(T superstate) {}
+
+	public virtual void Draw(T superstate) {}
+}
+
+internal delegate State InitializeState();
+
+public sealed class Game : Microsoft.Xna.Framework.Game {
 	private const Keys confirmKey = Keys.Z;
 	private const Keys cancelKey = Keys.X;
 	private const Keys moveUpKey = Keys.Up;
@@ -52,7 +121,19 @@ public sealed class NotatoGame : Game {
 	private const Keys moveLeftKey = Keys.Left;
 	private const Keys moveRightKey = Keys.Right;
 
-	private Scene scene;
+	internal static Game game;
+
+	public static void Start<T>(int width, int height) where T : State, new() {
+		game = new Game(width, height, () => {
+			return new T();
+		});
+
+		game.Run();
+	}
+
+	public static void ChangeState<T>() where T : State, new() {
+		game.state = new T();
+	}
 
 	private readonly Dictionary<Keys, bool> keysLocked = new Dictionary<Keys, bool>() {
 		{ confirmKey, false },
@@ -68,9 +149,10 @@ public sealed class NotatoGame : Game {
 	private readonly Vector2 offset;
 	private Character[] characters;
 
-	public NotatoGame(int internalWidth, int internalHeight, Scene initialScene) {
-		scene = initialScene;
+	private InitializeState initializeState;
+	internal State state;
 
+	internal Game(int internalWidth, int internalHeight, InitializeState initializeState) {
 		int width = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
 		int height = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
 		scaleFactor = Math.Min(width / internalWidth, height / internalHeight);
@@ -82,22 +164,25 @@ public sealed class NotatoGame : Game {
 			IsFullScreen = true
 		};
 
-		Run();
+		this.initializeState = initializeState;
 	}
 
-	public void ChangeScene(Scene scene) {
-		this.scene = scene;
-		this.scene.Initialize(this);
-	}
-
-	public void Draw(Texture2D texture, int x, int y) {
+	private void Draw(Texture2D texture, int x, int y) {
 		spriteBatch.Draw(texture, new Vector2(x, y) * scaleFactor + offset, null, Color.White, 0, Vector2.Zero, scaleFactor, SpriteEffects.None, 0);
 	}
 
-	public void DrawString(byte[] str, int x, int y) {
+	public static void Draw(Sprite sprite, int x, int y) {
+		game.Draw(sprite.texture, x, y);
+	}
+
+	public static void Draw(Sprite sprite) {
+		Draw(sprite, 0, 0);
+	}
+
+	public static void DrawString(byte[] str, int x, int y) {
 		for (byte i = 0; i < str.Length; i++ ) {
-			Character character = characters[str[i]];
-			Draw(character.texture, x, y);
+			Character character = game.characters[str[i]];
+			game.Draw(character.texture, x, y);
 			x += (ushort) (character.width);
 		}
 	}
@@ -176,7 +261,8 @@ public sealed class NotatoGame : Game {
 			new Character(Content.Load<Texture2D>("question_mark"), 6)
 		};
 
-		scene.Initialize(this);
+		state = initializeState();
+		initializeState = null;
 
 		base.Initialize();
 	}
@@ -184,28 +270,29 @@ public sealed class NotatoGame : Game {
 	protected override void Update(GameTime gameTime) {
 		KeyboardState keyboard = Keyboard.GetState();
 
-		UpdateKey(confirmKey, scene.OnConfirm);
-		UpdateKey(cancelKey, scene.OnCancel);
-		UpdateKey(moveUpKey, scene.OnMoveUp);
-		UpdateKey(moveDownKey, scene.OnMoveDown);
-		UpdateKey(moveLeftKey, scene.OnMoveLeft);
-		UpdateKey(moveRightKey, scene.OnMoveRight);
+		UpdateKey(confirmKey, state.OnConfirm);
+		UpdateKey(cancelKey, state.OnCancel);
+		UpdateKey(moveUpKey, state.OnMoveUp);
+		UpdateKey(moveDownKey, state.OnMoveDown);
+		UpdateKey(moveLeftKey, state.OnMoveLeft);
+		UpdateKey(moveRightKey, state.OnMoveRight);
 
-		scene.Update(this);
+		state.Update();
 
-		void UpdateKey(Keys key, Action<NotatoGame> action) {
+		void UpdateKey(Keys key, Action action) {
 			if (keyboard[key] == KeyState.Up) {
 				keysLocked[key] = false;
 			} else if (!keysLocked[key]) {
 				keysLocked[key] = true;
-				action(this);
+				action();
 			}
 		}
 	}
 
 	protected override void Draw(GameTime gameTime) {
+		GraphicsDevice.Clear(Color.Black);
 		spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-		scene.Draw(this);
+		state.Draw();
 		spriteBatch.End();
 	}
 
